@@ -1,10 +1,6 @@
-// puzzle.js
-// Juego de placas deslizables - Búsquedas no informadas (BFS, IDDFS, Bidireccional)
-// Compatible con N×N (3x3, 4x4, ...). Ejecuta: node puzzle.js
-
 const readline = require("readline");
 
-// -------------------- Utilidades de tablero --------------------
+// tablero 
 function indexToRC(idx, N) {
   return { r: Math.floor(idx / N), c: idx % N };
 }
@@ -20,11 +16,9 @@ function arrEquals(a, b) {
   return true;
 }
 function keyOf(state) {
-  // clave string para Set/Map
   return state.join(",");
 }
 function parseState(input, N) {
-  // "1 2 3 4 5 6 7 8 0" → [1,2,3,4,5,6,7,8,0]
   const nums = input
     .split(/[\s,;]+/)
     .filter(Boolean)
@@ -56,8 +50,6 @@ function goalState(N) {
   a.push(0);
   return a;
 }
-
-// Generar sucesores (estado, movimiento)
 const MOVES = [
   { dr: -1, dc: 0, name: "U" },
   { dr: 1, dc: 0, name: "D" },
@@ -83,9 +75,7 @@ function neighbors(state, N) {
   return res;
 }
 
-// -------------------- Solvability (inversiones) --------------------
 function countInversions(arr) {
-  // cuenta inversiones ignorando el 0
   const a = arr.filter((x) => x !== 0);
   let inv = 0;
   for (let i = 0; i < a.length; i++) {
@@ -96,13 +86,6 @@ function countInversions(arr) {
   return inv;
 }
 function isSolvable(state, N, goal = goalState(N)) {
-  // Para NxN:
-  // - Si N impar: solvable si #inversiones(state) par.
-  // - Si N par: sean inv(state) y fila del 0 contando desde abajo.
-  //   Si (filaDesdeAbajo par) => inv debe ser impar.
-  //   Si (filaDesdeAbajo impar) => inv debe ser par.
-  // Nota: cuando meta != estándar, estrictamente hay que comparar permutaciones relativas.
-  // Aquí asumimos meta estándar [1..N*N-1,0] o estados generados desde ella.
   const inv = countInversions(state);
   if (N % 2 === 1) {
     return inv % 2 === 0;
@@ -117,21 +100,17 @@ function isSolvable(state, N, goal = goalState(N)) {
     }
   }
 }
-
-// -------------------- Generación aleatoria válida --------------------
 function scrambleFrom(goal, N, steps = 30) {
   let curr = goal.slice();
   for (let s = 0; s < steps; s++) {
     const neigh = neighbors(curr, N);
-    // evitar deshacer el paso anterior trivialmente
-    // (opcional; aquí elegimos un random libremente)
     const pick = neigh[Math.floor(Math.random() * neigh.length)].state;
     curr = pick;
   }
   return curr;
 }
 
-// -------------------- Reconstrucción de caminos --------------------
+// caminos 
 function reconstructPath(parents, moves, endKey) {
   const pathStates = [];
   const pathMoves = [];
@@ -147,7 +126,7 @@ function reconstructPath(parents, moves, endKey) {
   return { pathStates, pathMoves };
 }
 
-// -------------------- BFS --------------------
+// - BFS 
 function bfs(start, goal, N) {
   const startKey = keyOf(start);
   const goalKey = keyOf(goal);
@@ -156,8 +135,8 @@ function bfs(start, goal, N) {
   }
   const q = [start];
   const visited = new Set([startKey]);
-  const parents = new Map(); // key -> {parentKey, state}
-  const moves = new Map();   // key -> move from parent to this
+  const parents = new Map(); 
+  const moves = new Map();   
   parents.set(startKey, { parentKey: null, state: start });
   let expanded = 0;
 
@@ -182,7 +161,7 @@ function bfs(start, goal, N) {
   return { found: false, depth: -1, expanded };
 }
 
-// -------------------- IDDFS (DFS con límite + profundización) --------------------
+// IDDFS 
 function dls(node, goalKey, N, limit, pathSet, parents, moves, stats) {
   const k = keyOf(node);
   if (k === goalKey) return { found: true, endKey: k };
@@ -191,7 +170,7 @@ function dls(node, goalKey, N, limit, pathSet, parents, moves, stats) {
   stats.expanded++;
   for (const { state: nxt, move } of neighbors(node, N)) {
     const nk = keyOf(nxt);
-    if (pathSet.has(nk)) continue; // evita ciclos en la ruta actual
+    if (pathSet.has(nk)) continue; 
     parents.set(nk, { parentKey: k, state: nxt });
     moves.set(nk, move);
     pathSet.add(nk);
@@ -222,24 +201,19 @@ function iddfs(start, goal, N, maxDepth = 80) {
   return { found: false, depth: -1, expanded: 0 };
 }
 
-// -------------------- Bidireccional (dos BFS) --------------------
+// Bidireccional
 function buildPathFromMeet(
   meetKey,
-  parentsF, movesF, // desde inicio
-  parentsB, movesB  // desde meta (reversa)
+  parentsF, movesF, 
+  parentsB, movesB  
 ) {
-  // Camino inicio -> meet
+  // Camino inicio
   const left = reconstructPath(parentsF, movesF, meetKey);
-  // Camino meta -> meet (tenemos padres “al revés”), reconstruimos y luego invertimos
   const right = reconstructPath(parentsB, movesB, meetKey);
-  // right devuelve camino meta->...->meet, lo invertimos y convertimos movimientos
   right.pathStates.reverse();
   right.pathMoves.reverse();
-  // Para movimientos de la parte derecha debemos invertir (U<->D, L<->R) porque vienen del reverse
   const inv = { U: "D", D: "U", L: "R", R: "L" };
   const rightMovesAdjusted = right.pathMoves.map((m) => inv[m]);
-
-  // Unimos, evitando duplicar el meet
   const pathStates = left.pathStates.concat(right.pathStates.slice(1));
   const pathMoves = left.pathMoves.concat(rightMovesAdjusted);
   return { pathStates, pathMoves };
@@ -264,7 +238,6 @@ function bidirectional(start, goal, N) {
   let expanded = 0;
 
   while (qF.length && qB.length) {
-    // Expandir un paso adelante (desde inicio)
     {
       const size = qF.length;
       for (let s = 0; s < size; s++) {
@@ -278,7 +251,6 @@ function bidirectional(start, goal, N) {
             parentsF.set(nk, { parentKey: currKey, state: nxt });
             movesF.set(nk, move);
             if (visitedB.has(nk)) {
-              // ¡Se encontraron!
               const { pathStates, pathMoves } = buildPathFromMeet(nk, parentsF, movesF, parentsB, movesB);
               return { found: true, depth: pathMoves.length, expanded, pathStates, pathMoves };
             }
@@ -287,7 +259,6 @@ function bidirectional(start, goal, N) {
         }
       }
     }
-    // Expandir un paso atrás (desde meta)
     {
       const size = qB.length;
       for (let s = 0; s < size; s++) {
@@ -299,8 +270,6 @@ function bidirectional(start, goal, N) {
           if (!visitedB.has(nk)) {
             visitedB.add(nk);
             parentsB.set(nk, { parentKey: currKey, state: nxt });
-            // Nota: move aquí es el movimiento desde "curr" hacia nxt,
-            // pero en el sentido reverse lo almacenamos tal cual y luego ajustamos al reconstruir.
             movesB.set(nk, move);
             if (visitedF.has(nk)) {
               const { pathStates, pathMoves } = buildPathFromMeet(nk, parentsF, movesF, parentsB, movesB);
@@ -315,7 +284,7 @@ function bidirectional(start, goal, N) {
   return { found: false, depth: -1, expanded };
 }
 
-// -------------------- CLI Interactiva --------------------
+//CLI Interactiva 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
 function ask(q) {
@@ -354,9 +323,9 @@ function ask(q) {
         console.log("Error:", e.message); rl.close(); return;
       }
     }
-    // Advertencia de solvencia
+    // Advertencia
     if (!isSolvable(start, N, goal)) {
-      console.log("\n⚠️ El estado inicial parece NO ser resoluble respecto de la meta estándar.\n" +
+      console.log("\nEl estado inicial parece NO ser resoluble respecto de la meta estándar.\n" +
                   "Si estás usando una meta distinta o tus estados vienen de mezcla real, ignora este aviso.\n");
     }
   } else {
@@ -399,7 +368,7 @@ function ask(q) {
   }
 
   if (runList.has(1)) await runAlgo("BFS (Amplitud)", bfs);
-  if (runList.has(2)) await runAlgo("IDDFS (Profundidad Iterativa)", (s, g, n) => iddfs(s, g, n, 100)); // límite 100 por defecto
+  if (runList.has(2)) await runAlgo("IDDFS (Profundidad Iterativa)", (s, g, n) => iddfs(s, g, n, 100)); // límite 100 
   if (runList.has(3)) await runAlgo("Búsqueda Bidireccional", bidirectional);
 
   console.log("\nListo. ¡Éxitos en la entrega!");
