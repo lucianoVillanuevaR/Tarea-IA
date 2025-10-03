@@ -60,4 +60,20 @@ Paso 1:
  4  5  6
  7  8   
 
+ 📊 Detalles Técnicos
+
+Representación del tablero: arreglo lineal de longitud N*N, con 0 representando el espacio en blanco.
+
+Chequeo de resolubilidad: se implementa el cálculo de inversiones para descartar estados imposibles.
+
+Generación aleatoria: se parte de la meta y se aplican movimientos válidos al azar, garantizando solvencia.
+
+Algoritmos incluidos:
+
+BFS: siempre encuentra la solución más corta en número de movimientos.
+
+IDDFS: combina la completitud de BFS con la memoria reducida de DFS.
+
+Bidireccional: explora desde inicio y meta simultáneamente para acelerar la búsqueda.
+
 
